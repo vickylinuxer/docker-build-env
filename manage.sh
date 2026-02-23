@@ -11,13 +11,16 @@ usage() {
   echo "Usage: ./manage.sh <command>"
   echo ""
   echo "Commands:"
-  echo "  status       Show container and volume status"
-  echo "  stop         Gracefully stop the container"
-  echo "  shell        Open a new shell in the running container"
-  echo "  volume-info  Show disk usage of the build volume"
-  echo "  rebuild      Rebuild the Docker image (keeps volume data)"
-  echo "  reset        Stop and remove the container (volume data is KEPT)"
-  echo "  purge        ⚠  Remove container AND volume (ALL BUILD DATA LOST)"
+  echo "  status            Show container and volume status"
+  echo "  stop              Gracefully stop the container"
+  echo "  shell             Open a new shell in the running container"
+  echo "  volume-info       Show disk usage of the build volume"
+  echo "  rebuild           Rebuild the Docker image (keeps volume data)"
+  echo "  reset             Stop and remove the container (volume data is KEPT)"
+  echo "  purge             ⚠  Remove container AND volume (ALL BUILD DATA LOST)"
+  echo "  autostart-enable  Install launchd agent: start container at macOS login"
+  echo "  autostart-disable Remove the launchd agent"
+  echo "  autostart-logs    Tail the autostart log"
   echo ""
 }
 
@@ -103,13 +106,94 @@ cmd_purge() {
   echo "Container and volume removed."
 }
 
+PLIST_LABEL="com.vickylinuxer.docker-build-env"
+PLIST_FILE="$HOME/Library/LaunchAgents/${PLIST_LABEL}.plist"
+LOG_DIR="$HOME/Library/Logs/docker-build-env"
+
+cmd_autostart_enable() {
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  mkdir -p "$(dirname "$PLIST_FILE")" "$LOG_DIR"
+
+  cat > "$PLIST_FILE" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${PLIST_LABEL}</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>${SCRIPT_DIR}/autostart.sh</string>
+    </array>
+
+    <!-- Run once at login, do not restart if it exits normally -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- Explicit PATH so launchd can find docker -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>${HOME}</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>${LOG_DIR}/autostart.log</string>
+    <key>StandardErrorPath</key>
+    <string>${LOG_DIR}/autostart.log</string>
+</dict>
+</plist>
+PLIST
+
+  launchctl load "$PLIST_FILE"
+  echo ""
+  echo "  ✓ Autostart enabled."
+  echo "  Agent : $PLIST_FILE"
+  echo "  Log   : $LOG_DIR/autostart.log"
+  echo ""
+  echo "  The container will start automatically at next login."
+  echo "  To trigger it now without rebooting:"
+  echo "    launchctl start $PLIST_LABEL"
+  echo ""
+}
+
+cmd_autostart_disable() {
+  if [ -f "$PLIST_FILE" ]; then
+    launchctl unload "$PLIST_FILE" 2>/dev/null || true
+    rm "$PLIST_FILE"
+    echo "  ✓ Autostart disabled."
+  else
+    echo "  Autostart is not enabled (plist not found)."
+  fi
+}
+
+cmd_autostart_logs() {
+  LOG_FILE="$LOG_DIR/autostart.log"
+  if [ -f "$LOG_FILE" ]; then
+    tail -50 "$LOG_FILE"
+  else
+    echo "  No autostart log found at $LOG_FILE"
+    echo "  Run './manage.sh autostart-enable' first."
+  fi
+}
+
 case "${1:-}" in
-  status)      cmd_status ;;
-  stop)        cmd_stop ;;
-  shell)       cmd_shell ;;
-  volume-info) cmd_volume_info ;;
-  rebuild)     cmd_rebuild ;;
-  reset)       cmd_reset ;;
-  purge)       cmd_purge ;;
-  *)           usage ;;
+  status)           cmd_status ;;
+  stop)             cmd_stop ;;
+  shell)            cmd_shell ;;
+  volume-info)      cmd_volume_info ;;
+  rebuild)          cmd_rebuild ;;
+  reset)            cmd_reset ;;
+  purge)            cmd_purge ;;
+  autostart-enable) cmd_autostart_enable ;;
+  autostart-disable)cmd_autostart_disable ;;
+  autostart-logs)   cmd_autostart_logs ;;
+  *)                usage ;;
 esac

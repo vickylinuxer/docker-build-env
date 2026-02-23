@@ -15,8 +15,9 @@ Docker-based AOSP (Android Open Source Project) and Yocto Linux build environmen
 | `Dockerfile` | Ubuntu 24.04 image with all build tools, Java, Python, ccache, repo tool |
 | `entrypoint.sh` | Container entrypoint: copies host SSH keys into builder home and fixes permissions |
 | `setup.sh` | One-time initialization: validates Docker, creates the `aosp-yocto-build` named volume, builds the image |
-| `start.sh` | Daily driver: starts or resumes the container with optimal CPU/RAM allocation |
-| `manage.sh` | Container lifecycle: shell, stop, status, rebuild, reset, purge |
+| `start.sh` | Daily driver: starts or resumes the container; attaches via `docker exec` |
+| `autostart.sh` | Called by launchd at macOS login; waits for Docker then starts container detached |
+| `manage.sh` | Container lifecycle: shell, stop, status, rebuild, reset, purge, autostart-enable/disable |
 | `README.md` | Full user guide with AOSP and Yocto workflow examples |
 
 ## Architecture Decisions
@@ -28,6 +29,8 @@ Docker-based AOSP (Android Open Source Project) and Yocto Linux build environmen
 - **ccache** at `/build/.ccache` (50 GB cap) — drastically reduces incremental build times
 - **Java 11 and 17** both installed — different Android branches require different JDK versions; `JAVA_HOME` defaults to Java 17
 - **`repo` tool** downloaded from `storage.googleapis.com/git-repo-downloads/repo` (not `git-integration` — that URL is dead)
+- **Persistent container** — main process is `sleep infinity`; the container stays alive across terminal disconnects and tmux sessions. Shells are always opened via `docker exec`, never as PID 1. This is required for autostart to work correctly.
+- **Autostart (launchd)** — `manage.sh autostart-enable` installs a LaunchAgent plist at `~/Library/LaunchAgents/com.vickylinuxer.docker-build-env.plist`. `autostart.sh` polls for Docker Desktop readiness (up to 120 s) before starting the container. Logs at `~/Library/Logs/docker-build-env/autostart.log`.
 
 ## Common Commands
 
@@ -45,9 +48,14 @@ chmod +x *.sh && ./setup.sh
 ./manage.sh volume-info     # Disk usage breakdown
 
 # Maintenance
-./manage.sh rebuild         # Rebuild image, preserves /build data
-./manage.sh reset           # Remove container only, preserves /build data
-./manage.sh purge           # Destroy everything (prompts for confirmation)
+./manage.sh rebuild          # Rebuild image, preserves /build data
+./manage.sh reset            # Remove container only, preserves /build data
+./manage.sh purge            # Destroy everything (prompts for confirmation)
+
+# Autostart (Mac Mini boot)
+./manage.sh autostart-enable  # Install launchd agent
+./manage.sh autostart-disable # Remove launchd agent
+./manage.sh autostart-logs    # Tail the autostart log
 ```
 
 ### Inside Container — AOSP

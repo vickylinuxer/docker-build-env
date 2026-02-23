@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================
 # start.sh — Start (or resume) the build container
+#
+# The container runs persistently with "sleep infinity" as its
+# main process so it survives terminal disconnects and tmux
+# sessions. Shells are opened via "docker exec" rather than
+# being the container's PID 1.
 # ============================================================
 set -e
 
@@ -24,23 +29,22 @@ echo "  RAM   : ${BUILD_RAM_GB}g / ${TOTAL_RAM_GB}g"
 echo "  Volume: $VOLUME_NAME → /build"
 echo ""
 
-# ── If container already exists, just attach to it ───────────
+# ── If container already exists, attach to it ────────────────
 if docker container inspect "$CONTAINER_NAME" &>/dev/null; then
   STATUS=$(docker inspect -f '{{.State.Status}}' "$CONTAINER_NAME")
   if [[ "$STATUS" == "running" ]]; then
-    echo "  Container is already running — attaching..."
-    docker exec -it "$CONTAINER_NAME" /bin/bash
-    exit 0
+    echo "  Container is running — attaching..."
   else
     echo "  Resuming stopped container..."
-    docker start -ai "$CONTAINER_NAME"
-    exit 0
+    docker start "$CONTAINER_NAME"
   fi
+  docker exec -it "$CONTAINER_NAME" /bin/bash
+  exit 0
 fi
 
-# ── Start a fresh container ───────────────────────────────────
+# ── Start a fresh container (detached; sleep infinity keeps it alive) ──
 echo "  Starting new container..."
-docker run -it \
+docker run -d \
   --name "$CONTAINER_NAME" \
   --hostname build-box \
   \
@@ -63,4 +67,8 @@ docker run -it \
   -e "TERM=xterm-256color" \
   -e "HISTFILE=/build/.bash_history" \
   \
-  "$IMAGE_NAME"
+  "$IMAGE_NAME" \
+  sleep infinity    # container stays alive; attach with docker exec
+
+echo "  Container started. Attaching..."
+docker exec -it "$CONTAINER_NAME" /bin/bash
