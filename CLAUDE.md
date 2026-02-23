@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+> **Maintenance rule:** Update this file as part of every change — Dockerfile additions, script changes, bug fixes, and new conventions all belong here.
+
 ## Project Overview
 
 Docker-based AOSP (Android Open Source Project) and Yocto Linux build environment for macOS. Provides a persistent Ubuntu 24.04 container with all build dependencies pre-installed, working around macOS filesystem limitations (case-insensitive APFS/HFS+) that break large embedded Linux builds.
@@ -18,10 +20,12 @@ Docker-based AOSP (Android Open Source Project) and Yocto Linux build environmen
 ## Architecture Decisions
 
 - **Named volume** (`aosp-yocto-build`, 1 TB) mounted at `/build` — declared with `VOLUME ["/build"]` in the Dockerfile; provides a case-sensitive ext4 filesystem required by AOSP; bind-mounting macOS APFS would break builds
+- **`/build` ownership** — `RUN mkdir -p /build && chown builder:builder /build` runs before `VOLUME` so new volumes initialise writable; `entrypoint.sh` also fixes ownership on pre-existing root-owned volumes at startup via `sudo chown`
 - **SSH keys** — host `~/.ssh` is bind-mounted read-only at `/tmp/host-ssh`; `entrypoint.sh` copies the files to `/home/builder/.ssh` and sets correct permissions (700 dir, 600 private keys, 644 public keys) at container start
 - **Non-root user** `builder` (UID 1001) with passwordless sudo — satisfies both security requirements and AOSP build system expectations
 - **ccache** at `/build/.ccache` (50 GB cap) — drastically reduces incremental build times
-- Java 11 and 17 both installed — different Android branches require different JDK versions; `JAVA_HOME` defaults to Java 17
+- **Java 11 and 17** both installed — different Android branches require different JDK versions; `JAVA_HOME` defaults to Java 17
+- **`repo` tool** downloaded from `storage.googleapis.com/git-repo-downloads/repo` (not `git-integration` — that URL is dead)
 
 ## Common Commands
 
@@ -90,7 +94,7 @@ bitbake core-image-minimal
 - **Java**: OpenJDK 11 & 17
 - **Python**: Python 3 + pip + venv
 - **VCS**: git, git-lfs, Google `repo`
-- **Yocto extras**: chrpath, diffstat, socat, cpio, texinfo, docbook-utils
+- **Yocto extras**: chrpath, diffstat, socat, cpio, texinfo, docbook-utils, file, gawk
 - **Utilities**: tmux, htop, vim, nano, curl, wget, rsync, jq, bc, ccache
 
 ## Disk Sizing Notes
