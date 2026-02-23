@@ -47,6 +47,9 @@ docker run -it \
   `# ── Volume: persistent build workspace ──` \
   -v "${VOLUME_NAME}:/build" \
   \
+  `# ── SSH keys (read-only from host) ─────` \
+  -v "$HOME/.ssh:/tmp/host-ssh:ro" \
+  \
   `# ── Resources ──────────────────────────` \
   --cpus="$BUILD_CPUS" \
   --memory="${BUILD_RAM_GB}g" \

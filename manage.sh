@@ -42,7 +42,7 @@ cmd_status() {
     echo "  Mountpoint: $MOUNT"
     echo ""
     echo "  Disk usage inside Docker VM:"
-    docker run --rm -v "${VOLUME_NAME}:/build" --entrypoint="" ubuntu:22.04 \
+    docker run --rm -v "${VOLUME_NAME}:/build" --entrypoint="" ubuntu:24.04 \
       df -h /build 2>/dev/null || echo "  (could not read — start the container first)"
   else
     echo "  Volume '$VOLUME_NAME' does not exist yet."
@@ -67,7 +67,7 @@ cmd_volume_info() {
   docker run --rm \
     -v "${VOLUME_NAME}:/build" \
     --entrypoint="" \
-    ubuntu:22.04 \
+    ubuntu:24.04 \
     bash -c "df -h /build && echo '' && du -sh /build/* 2>/dev/null | sort -rh | head -20"
   echo ""
 }

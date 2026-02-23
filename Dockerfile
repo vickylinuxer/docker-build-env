@@ -1,7 +1,7 @@
 # ============================================================
-# Ubuntu 22.04 Build Environment for AOSP & Yocto
+# Ubuntu 24.04 Build Environment for AOSP & Yocto
 # ============================================================
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Archive / compression
     zip unzip tar xz-utils lz4 zstd \
     # Libraries needed by AOSP & Yocto
-    libssl-dev libncurses5-dev libncursesw5-dev \
+    libssl-dev libncurses-dev \
     libxml2-utils libreadline-dev \
     liblz4-tool zlib1g-dev \
     # AOSP specifics
@@ -43,7 +43,7 @@ ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
 # ── repo tool (for AOSP) ─────────────────────────────────────
-RUN curl -fsSL https://storage.googleapis.com/git-integration/repo > /usr/local/bin/repo \
+RUN curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin/repo \
     && chmod +x /usr/local/bin/repo
 
 # ── Create a non-root builder user ───────────────────────────
@@ -55,6 +55,18 @@ RUN groupadd -g 1001 builder \
 ENV USE_CCACHE=1
 ENV CCACHE_DIR=/build/.ccache
 ENV CCACHE_MAXSIZE=50G
+
+# ── Entrypoint script ────────────────────────────────────────
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# ── Create /build owned by builder before declaring as volume ─
+# VOLUME copies the image directory's ownership into new volumes.
+# Must be done here (as root) before switching to USER builder.
+RUN mkdir -p /build && chown builder:builder /build
+
+# ── Persistent volume mount point ────────────────────────────
+VOLUME ["/build"]
 
 # ── Set working directory on the persistent volume ───────────
 WORKDIR /build
@@ -69,4 +81,5 @@ RUN echo 'alias ll="ls -lah --color=auto"' >> /home/builder/.bashrc \
 
 USER builder
 
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/bin/bash"]
