@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-> **Maintenance rule:** Update this file as part of every change — Dockerfile additions, script changes, bug fixes, and new conventions all belong here.
+> **Maintenance rules:**
+> 1. Update this file as part of every change — Dockerfile additions, script changes, bug fixes, and new conventions all belong here.
+> 2. After every change: commit with a descriptive message and push to `git@github.com:vickylinuxer/docker-build-env.git`.
 
 ## Project Overview
 
