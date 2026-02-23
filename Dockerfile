@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Yocto specifics
     chrpath diffstat socat cpio \
     xterm texinfo docbook-utils \
+    file gawk \
     # Network tools
     openssh-client ca-certificates \
     # Misc utilities
